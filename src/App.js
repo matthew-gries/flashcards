@@ -38,6 +38,7 @@ function WordList(props) {
   return (
     <List
       className="App-word-list"
+      style={{maxHeight: 200, maxWidth: 300, overflow: 'auto', position: 'relative'}}
       component="nav"
     >
       {words.map((word) => {
@@ -52,7 +53,8 @@ function WordList(props) {
 
 function Flashcard(props) {
 
-  const { word, formatMeaningsFunction, error, loading } = props;
+  const { word, formatMeaningsFunction, error, loading, facingWord, flipCardFunc } = props;
+
 
   const getFlashcard = () => {
     if (loading) {
@@ -80,16 +82,32 @@ function Flashcard(props) {
       const definitionsToDisplay = (word !== null) ? formatMeaningsFunction() : null;
       return (
         <div className="App-flash-card-entry">
-          <CardContent>
-            <Typography className="App-flash-card-word" variant="h5" component="h2">
-              {wordToDisplay}
-            </Typography>
-            <div className="App-flash-card-meanings">
-              {definitionsToDisplay}
-            </div>
-          </CardContent>
+          <div>
+            {(() => {
+              if (facingWord) {
+                return (
+                  <CardContent>
+                    <Typography className="App-flash-card-word" variant="h5" component="h2">
+                      {wordToDisplay}
+                    </Typography>
+                  </CardContent>
+                );
+              } else {
+                return (
+                  <CardContent>
+                    <Typography className="App-flash-card-word" variant="h5" component="h2">
+                      {wordToDisplay}
+                    </Typography>
+                    <div className="App-flash-card-meanings">
+                      {definitionsToDisplay}
+                    </div>
+                  </CardContent>
+                );
+              }
+            })()}
+          </div>
           <CardActions>
-            <Button size="small">Flip</Button>
+            <Button size="small" onClick={() => flipCardFunc()}>Flip</Button>
           </CardActions>
         </div>
       );
@@ -116,6 +134,7 @@ function App() {
   const [selectedWordError, setSelectedWordError] = React.useState(null);
   const [loadingDefinition, setLoadingDefinition] = React.useState(false);
   const [didWordFileLoad, setDidWordFileLoad] = React.useState(null);
+  const [isFacingWord, setIsFacingWord] = React.useState(true);
 
   React.useEffect(() => {
     if (didWordFileLoad !== null) {
@@ -192,6 +211,7 @@ function App() {
         setSelectedWordError(e.message);
         setLoadingDefinition(false);
       });
+    setIsFacingWord(true);
   }
 
   const handleUploadFile = event => {
@@ -257,7 +277,14 @@ function App() {
           onChange={handleNewWordFieldChange}
           onKeyPress={handleNewWordFieldSubmit}
         />
-        <Flashcard word={selectedWord} formatMeaningsFunction={formatMeaningsFunction} error={selectedWordError} loading={loadingDefinition} />
+        <Flashcard
+          word={selectedWord}
+          formatMeaningsFunction={formatMeaningsFunction}
+          error={selectedWordError}
+          loading={loadingDefinition}
+          facingWord={isFacingWord}
+          flipCardFunc={() => setIsFacingWord(!isFacingWord)}
+        />
         <form onSubmit={handleSelectNewWord}>
           <Button
             type="submit"
