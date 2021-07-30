@@ -1,15 +1,14 @@
 import React from "react";
 import TextField from "@material-ui/core/TextField";
-import List from "@material-ui/core/List"
-import ListItem from "@material-ui/core/ListItem"
-import ListItemText from "@material-ui/core/ListItemText"
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
 import Typography from '@material-ui/core/Typography';
+import { ThemeProvider } from "@material-ui/core/styles";
 import Button from '@material-ui/core/Button';
-import CircularProgress from "@material-ui/core/CircularProgress";
 import Alert from "@material-ui/lab/Alert";
+import { CssBaseline } from "@material-ui/core";
+
+import Flashcard from "./Components/Flashcard";
+import WordList from "./Components/WordList";
+import theme from "./theme";
 
 import { v4 as uuidv4 } from "uuid";
 
@@ -29,96 +28,6 @@ function isOnlyAlphaAndSpaces(str) {
   }
 
   return true;
-}
-
-function WordList(props) {
-
-  const { words } = props;
-
-  return (
-    <List
-      className="App-word-list"
-      style={{maxHeight: 200, maxWidth: 300, overflow: 'auto', position: 'relative'}}
-      component="nav"
-    >
-      {words.map((word) => {
-        return (
-          <ListItem key={uuidv4()}>
-            <ListItemText primary={word} />
-          </ListItem>
-        )})}
-    </List>
-  )
-}
-
-function Flashcard(props) {
-
-  const { word, formatMeaningsFunction, error, loading, facingWord, flipCardFunc } = props;
-
-
-  const getFlashcard = () => {
-    if (loading) {
-      return (
-        <CardContent>
-          <Typography className="App-flash-card-loading-header" variant="h5" component="h2">
-            Loading...
-          </Typography>
-          <CircularProgress />
-        </CardContent>
-      );
-    } else if (error !== null) {
-      return (
-        <CardContent>
-          <Typography className="App-flash-card-error-header" variant="h5" component="h2">
-            Error
-          </Typography>
-          <Typography className="App-flash-card-error-message" variant="body2" component="p">
-            {error}
-          </Typography>
-        </CardContent>
-      );
-    } else {
-      const wordToDisplay = (word !== null) ? word : "Add words to start using flashcards!";
-      const definitionsToDisplay = (word !== null) ? formatMeaningsFunction() : null;
-      return (
-        <div className="App-flash-card-entry">
-          <div>
-            {(() => {
-              if (facingWord) {
-                return (
-                  <CardContent>
-                    <Typography className="App-flash-card-word" variant="h5" component="h2">
-                      {wordToDisplay}
-                    </Typography>
-                  </CardContent>
-                );
-              } else {
-                return (
-                  <CardContent>
-                    <Typography className="App-flash-card-word" variant="h5" component="h2">
-                      {wordToDisplay}
-                    </Typography>
-                    <div className="App-flash-card-meanings">
-                      {definitionsToDisplay}
-                    </div>
-                  </CardContent>
-                );
-              }
-            })()}
-          </div>
-          <CardActions>
-            <Button size="small" onClick={() => flipCardFunc()}>Flip</Button>
-          </CardActions>
-        </div>
-      );
-    }
-  }
-
-  return (
-    <Card className="App-flash-card">
-      {getFlashcard()}
-    </Card>
-  )
 }
 
 function App() {
@@ -181,14 +90,14 @@ function App() {
     }
   }
 
-  const handleSelectNewWord = event => {
-    event.preventDefault();
-    if (wordList.length === 0) {
+  const selectNewWord = (listOfWords) => {
+
+    if (listOfWords.length === 0) {
       return
     }
-    const nextWordIndex = Math.floor(Math.random() * wordList.length);
+    const nextWordIndex = Math.floor(Math.random() * listOfWords.length);
     setLoadingDefinition(true);
-    getWordDefinition(wordList[nextWordIndex])
+    getWordDefinition(listOfWords[nextWordIndex])
       .then(info => {
         if (info.message === undefined) {
           const word = info[0].word;
@@ -198,7 +107,7 @@ function App() {
           setSelectedWordError(null);
           setLoadingDefinition(false);
         } else {
-          const errorMessage = "No definition found for " + wordList[nextWordIndex].toLowerCase() + "!";
+          const errorMessage = "No definition found for " + listOfWords[nextWordIndex].toLowerCase() + "!";
           setSelectedWord(null);
           setSelectedWordDefinitions(null);
           setSelectedWordError(errorMessage);
@@ -214,6 +123,11 @@ function App() {
     setIsFacingWord(true);
   }
 
+  const handleSelectNewWord = event => {
+    event.preventDefault();
+    selectNewWord(wordList);
+  }
+
   const handleUploadFile = event => {
     event.preventDefault();
 
@@ -227,7 +141,9 @@ function App() {
     reader.onload = () => {
       setDidWordFileLoad(true);
       const newWords = reader.result.split("\n");
-      setWordList(wordList.concat(newWords));
+      const newWordList = wordList.concat(newWords);
+      setWordList(newWordList);
+      selectNewWord(newWordList);
     }
 
     reader.onerror = () => {
@@ -264,66 +180,76 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
-        <WordList words={wordList} />
-        <TextField
-          className="App-new-field-field"
-          defaultValue={newWordField}
-          error={!!newWordFieldError.error}
-          helperText={newWordFieldError.errorMessage}
-          id="outlined-basic"
-          label="Enter new words here"
-          variant="outlined"
-          onChange={handleNewWordFieldChange}
-          onKeyPress={handleNewWordFieldSubmit}
-        />
-        <Flashcard
-          word={selectedWord}
-          formatMeaningsFunction={formatMeaningsFunction}
-          error={selectedWordError}
-          loading={loadingDefinition}
-          facingWord={isFacingWord}
-          flipCardFunc={() => setIsFacingWord(!isFacingWord)}
-        />
-        <form onSubmit={handleSelectNewWord}>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-          >
-            Next
-          </Button>
-        </form>
-        <Button
-          type="submit"
-          variant="contained"
-          component="label"
-        >
-          Upload File
-          <input type="file" onChange={handleUploadFile} hidden/>
-        </Button>
-        <div className="App-file-upload-alert">
-          {(() => {
-            if (didWordFileLoad === true) {
-              return (
-                <div>
-                  <Alert severity="success">
-                    File uploaded sucessfully!
-                  </Alert>
-                </div>
-              )
-            } else if (didWordFileLoad === false) {
-              return (
-                <div>
-                  <Alert severity="error">
-                    File could not be uploaded!
-                  </Alert>
-                </div>
-              )
-            }
-          })()}
-        </div>
-      </header>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <header className="App-header">
+          <div className="App-flash-card-and-buttons" style={{float: "left"}}>
+            <Flashcard
+              word={selectedWord}
+              formatMeaningsFunction={formatMeaningsFunction}
+              error={selectedWordError}
+              loading={loadingDefinition}
+              facingWord={isFacingWord}
+              flipCardFunc={() => setIsFacingWord(!isFacingWord)}
+            />
+            <div style={{paddingTop: "10px", paddingBottom: "10px", margin: "10px"}}>
+              <form onSubmit={handleSelectNewWord}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  style={{float: "left"}}
+                >
+                  Next
+                </Button>
+              </form>
+              <Button
+                type="submit"
+                variant="contained"
+                component="label"
+                style={{marginLeft: "10px"}}
+              >
+                Upload File
+                <input type="file" onChange={handleUploadFile} hidden/>
+              </Button>
+              <div className="App-file-upload-alert">
+                {(() => {
+                  if (didWordFileLoad === true) {
+                    return (
+                      <div>
+                        <Alert severity="success">
+                          File uploaded sucessfully!
+                        </Alert>
+                      </div>
+                    )
+                  } else if (didWordFileLoad === false) {
+                    return (
+                      <div>
+                        <Alert severity="error">
+                          File could not be uploaded!
+                        </Alert>
+                      </div>
+                    )
+                  }
+                })()}
+              </div>
+            </div>
+          </div>
+          <TextField
+            className="App-new-field-field"
+            defaultValue={newWordField}
+            error={!!newWordFieldError.error}
+            helperText={newWordFieldError.errorMessage}
+            id="outlined-basic"
+            label="Enter new words here"
+            variant="outlined"
+            onChange={handleNewWordFieldChange}
+            onKeyPress={handleNewWordFieldSubmit}
+            style={{paddingBottom: "10px", margin: "10px"}}
+          />
+          <WordList words={wordList} />
+        </header>
+      </ThemeProvider>
     </div>
   );
 }
