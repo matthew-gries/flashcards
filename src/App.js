@@ -8,10 +8,15 @@ import CardActions from '@material-ui/core/CardActions';
 import CardContent from '@material-ui/core/CardContent';
 import Typography from '@material-ui/core/Typography';
 import Button from '@material-ui/core/Button';
+import CircularProgress from "@material-ui/core/CircularProgress";
+import Alert from "@material-ui/lab/Alert";
 
 async function getWordDefinition(word) {
   const apiRequest = "https://api.dictionaryapi.dev/api/v2/entries/en_US/" + word;
-  return fetch(apiRequest);
+  return fetch(apiRequest)
+    .then(response => {
+      return response.json();
+    })
 }
 
 function isOnlyAlphaAndSpaces(str) {
@@ -44,8 +49,54 @@ function WordList(props) {
 }
 
 function Flashcard(props) {
+
+  const { word, meanings, error, loading } = props;
+
+  const getFlashcard = () => {
+    if (loading) {
+      return (
+        <CardContent>
+          <Typography className="App-flash-card-loading-header" variant="h5" component="h2">
+            Loading...
+          </Typography>
+          <CircularProgress />
+        </CardContent>
+      );
+    } else if (error !== null) {
+      return (
+        <CardContent>
+          <Typography className="App-flash-card-error-header" variant="h5" component="h2">
+            Error
+          </Typography>
+          <Typography className="App-flash-card-error-message" variant="body2" component="p">
+            {error}
+          </Typography>
+        </CardContent>
+      );
+    } else {
+      const wordToDisplay = (word !== null) ? word : "Add words to start using flashcards!";
+      return (
+        <div className="App-flash-card-entry">
+          <CardContent>
+            <Typography className="App-flash-card-word" variant="h5" component="h2">
+              {wordToDisplay}
+            </Typography>
+            <Typography className="App-flash-card-meanings" variant="body2" component="p">
+              {meanings}
+            </Typography>
+          </CardContent>
+          <CardActions>
+            <Button size="small">Flip</Button>
+          </CardActions>
+        </div>
+      );
+    }
+  }
+
   return (
-    <div></div>
+    <Card className="App-flash-card">
+      {getFlashcard()}
+    </Card>
   )
 }
 
@@ -59,6 +110,17 @@ function App() {
   const [wordList, setWordList] = React.useState([]);
   const [selectedWord, setSelectedWord] = React.useState(null);
   const [selectedWordDefinition, setSelectedWordDefinition] = React.useState(null);
+  const [selectedWordError, setSelectedWordError] = React.useState(null);
+  const [loadingDefinition, setLoadingDefinition] = React.useState(false);
+  const [didWordFileLoad, setDidWordFileLoad] = React.useState(null);
+
+  React.useEffect(() => {
+    if (didWordFileLoad !== null) {
+      setTimeout(() => {
+        setDidWordFileLoad(null);
+      }, 3000);
+    }
+  }, [didWordFileLoad]);
 
   const handleNewWordFieldChange = event => {
     event.preventDefault();
@@ -103,16 +165,58 @@ function App() {
       return
     }
     const nextWordIndex = Math.floor(Math.random() * wordList.length);
-    setSelectedWord(wordList[nextWordIndex]);
+    setLoadingDefinition(true);
     getWordDefinition(wordList[nextWordIndex])
-      .then(info => console.log(info))
-      .catch(e => console.log(e));
+      .then(info => {
+        if (info.message === undefined) {
+          const word = info[0].word;
+          const meanings = info[0].meanings[0].definitions[0].definition;
+          setSelectedWord(word);
+          setSelectedWordDefinition(meanings);
+          setSelectedWordError(null);
+          setLoadingDefinition(false);
+        } else {
+          const errorMessage = "No definition found for " + wordList[nextWordIndex].toLowerCase() + "!";
+          setSelectedWord(null);
+          setSelectedWordDefinition(null);
+          setSelectedWordError(errorMessage);
+          setLoadingDefinition(false);
+        }
+      })
+      .catch(e => {
+        setSelectedWord(null);
+        setSelectedWordDefinition(null);
+        setSelectedWordError(e.message);
+        setLoadingDefinition(false);
+      });
   }
+
+  const handleUploadFile = event => {
+    event.preventDefault();
+
+    if (event.target.files === undefined || event.target.files.length === 0) {
+      return;
+    }
+  
+    const file = event.target.files[0];
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      setDidWordFileLoad(true);
+      const newWords = reader.result.split("\n");
+      setWordList(wordList.concat(newWords));
+    }
+
+    reader.onerror = () => {
+      setDidWordFileLoad(false);
+    }
+
+    reader.readAsText(file);
+  };
 
   return (
     <div className="App">
       <header className="App-header">
-        <Flashcard />
         <form onSubmit={handleSelectNewWord}>
           <Button
             type="submit"
@@ -134,6 +238,36 @@ function App() {
           onChange={handleNewWordFieldChange}
           onKeyPress={handleNewWordFieldSubmit}
         />
+        <Flashcard word={selectedWord} meanings={selectedWordDefinition} error={selectedWordError} loading={loadingDefinition} />
+        <Button
+          type="submit"
+          variant="contained"
+          component="label"
+        >
+          Upload File
+          <input type="file" onChange={handleUploadFile} hidden/>
+        </Button>
+        <div className="App-file-upload-alert">
+          {(() => {
+            if (didWordFileLoad === true) {
+              return (
+                <div>
+                  <Alert severity="success">
+                    File uploaded sucessfully!
+                  </Alert>
+                </div>
+              )
+            } else if (didWordFileLoad === false) {
+              return (
+                <div>
+                  <Alert severity="error">
+                    File could not be uploaded!
+                  </Alert>
+                </div>
+              )
+            }
+          })()}
+        </div>
       </header>
     </div>
   );
