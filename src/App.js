@@ -11,6 +11,8 @@ import Button from '@material-ui/core/Button';
 import CircularProgress from "@material-ui/core/CircularProgress";
 import Alert from "@material-ui/lab/Alert";
 
+import { v4 as uuidv4 } from "uuid";
+
 async function getWordDefinition(word) {
   const apiRequest = "https://api.dictionaryapi.dev/api/v2/entries/en_US/" + word;
   return fetch(apiRequest)
@@ -38,9 +40,9 @@ function WordList(props) {
       className="App-word-list"
       component="nav"
     >
-      {words.map((word, id) => {
+      {words.map((word) => {
         return (
-          <ListItem key={id}>
+          <ListItem key={uuidv4()}>
             <ListItemText primary={word} />
           </ListItem>
         )})}
@@ -50,7 +52,7 @@ function WordList(props) {
 
 function Flashcard(props) {
 
-  const { word, meanings, error, loading } = props;
+  const { word, formatMeaningsFunction, error, loading } = props;
 
   const getFlashcard = () => {
     if (loading) {
@@ -75,15 +77,16 @@ function Flashcard(props) {
       );
     } else {
       const wordToDisplay = (word !== null) ? word : "Add words to start using flashcards!";
+      const definitionsToDisplay = (word !== null) ? formatMeaningsFunction() : null;
       return (
         <div className="App-flash-card-entry">
           <CardContent>
             <Typography className="App-flash-card-word" variant="h5" component="h2">
               {wordToDisplay}
             </Typography>
-            <Typography className="App-flash-card-meanings" variant="body2" component="p">
-              {meanings}
-            </Typography>
+            <div className="App-flash-card-meanings">
+              {definitionsToDisplay}
+            </div>
           </CardContent>
           <CardActions>
             <Button size="small">Flip</Button>
@@ -109,7 +112,7 @@ function App() {
   });
   const [wordList, setWordList] = React.useState([]);
   const [selectedWord, setSelectedWord] = React.useState(null);
-  const [selectedWordDefinition, setSelectedWordDefinition] = React.useState(null);
+  const [selectedWordDefinitions, setSelectedWordDefinitions] = React.useState(null);
   const [selectedWordError, setSelectedWordError] = React.useState(null);
   const [loadingDefinition, setLoadingDefinition] = React.useState(false);
   const [didWordFileLoad, setDidWordFileLoad] = React.useState(null);
@@ -170,22 +173,22 @@ function App() {
       .then(info => {
         if (info.message === undefined) {
           const word = info[0].word;
-          const meanings = info[0].meanings[0].definitions[0].definition;
+          const meanings = info[0].meanings;
           setSelectedWord(word);
-          setSelectedWordDefinition(meanings);
+          setSelectedWordDefinitions(meanings);
           setSelectedWordError(null);
           setLoadingDefinition(false);
         } else {
           const errorMessage = "No definition found for " + wordList[nextWordIndex].toLowerCase() + "!";
           setSelectedWord(null);
-          setSelectedWordDefinition(null);
+          setSelectedWordDefinitions(null);
           setSelectedWordError(errorMessage);
           setLoadingDefinition(false);
         }
       })
       .catch(e => {
         setSelectedWord(null);
-        setSelectedWordDefinition(null);
+        setSelectedWordDefinitions(null);
         setSelectedWordError(e.message);
         setLoadingDefinition(false);
       });
@@ -214,18 +217,34 @@ function App() {
     reader.readAsText(file);
   };
 
+  const formatMeaningsFunction = () => {
+    return (
+      <div>
+        {selectedWordDefinitions.map((meaning) => {
+          return (
+            <div>
+              <Typography color="textSecondary" gutterBottom key={uuidv4()}>
+                {meaning.partOfSpeech}
+              </Typography>
+              <div className="App-word-definitions">
+                {meaning.definitions.map((definition) => {
+                  return (
+                    <Typography variant="body2" component="p" key={uuidv4()}>
+                      {definition.definition}
+                    </Typography>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  };
+
   return (
     <div className="App">
       <header className="App-header">
-        <form onSubmit={handleSelectNewWord}>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-          >
-            Next
-          </Button>
-        </form>
         <WordList words={wordList} />
         <TextField
           className="App-new-field-field"
@@ -238,7 +257,16 @@ function App() {
           onChange={handleNewWordFieldChange}
           onKeyPress={handleNewWordFieldSubmit}
         />
-        <Flashcard word={selectedWord} meanings={selectedWordDefinition} error={selectedWordError} loading={loadingDefinition} />
+        <Flashcard word={selectedWord} formatMeaningsFunction={formatMeaningsFunction} error={selectedWordError} loading={loadingDefinition} />
+        <form onSubmit={handleSelectNewWord}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+          >
+            Next
+          </Button>
+        </form>
         <Button
           type="submit"
           variant="contained"
